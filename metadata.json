@@ -1,0 +1,6 @@
+{
+  "name": "ContentFlow AI",
+  "description": "Turn Ideas Into Content That Connects. AI Content Generator SaaS for creators, digital marketers, and agencies.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
