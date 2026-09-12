@@ -205,7 +205,7 @@ export const AdminDashboardView: React.FC = () => {
                       )}
                     </div>
                   </td>
-                  <td className="p-4 font-mono font-semibold text-slate-800">
+                  <td className="p-4 font-sans font-semibold text-slate-800">
                     {u.credits_used} / {u.credits_limit}
                   </td>
                   <td className="p-4">
@@ -266,7 +266,7 @@ export const AdminDashboardView: React.FC = () => {
           </div>
           <div className="space-y-2 max-h-48 overflow-y-auto">
             {stats.recent_logs.map(log => (
-              <div key={log.id} className="p-2.5 bg-slate-50 rounded-xl text-xs flex items-center justify-between gap-4 font-mono">
+              <div key={log.id} className="p-2.5 bg-slate-50 rounded-xl text-xs flex items-center justify-between gap-4 font-sans">
                 <div className="flex items-center gap-2 truncate">
                   <span className="font-bold text-indigo-600 uppercase text-[10px] bg-indigo-50 px-1.5 py-0.2 rounded border border-indigo-100">
                     {log.type}

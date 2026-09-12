@@ -41,10 +41,10 @@ export const Logo: React.FC<LogoProps> = ({
 
       <div className="flex flex-col leading-none">
         <div className="flex items-center gap-1.5">
-          <span className={`font-extrabold tracking-tight text-slate-900 font-['Outfit',sans-serif] ${textSizes[size]}`}>
+          <span className={`font-black tracking-tight text-slate-900 ${textSizes[size]}`}>
             CONTENTFLOW
           </span>
-          <span className={`rounded-md bg-indigo-600 text-white font-black tracking-wider uppercase ${badgeSizes[size]}`}>
+          <span className={`rounded-md bg-indigo-600 text-white font-extrabold tracking-wider uppercase ${badgeSizes[size]}`}>
             AI
           </span>
         </div>

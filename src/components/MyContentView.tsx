@@ -226,7 +226,7 @@ export const MyContentView: React.FC<MyContentViewProps> = ({ initialSelectId })
                       <h4 className="text-xs font-bold text-slate-900 truncate">
                         {item.title || item.topic}
                       </h4>
-                      <p className="text-[11px] text-slate-500 line-clamp-1 mt-0.5 font-mono">
+                      <p className="text-[11px] text-slate-500 line-clamp-1 mt-0.5 font-sans">
                         {item.content.replace(/[#*`_]/g, '')}
                       </p>
                     </div>
@@ -327,7 +327,7 @@ export const MyContentView: React.FC<MyContentViewProps> = ({ initialSelectId })
                   id="library-item-content-textarea"
                   value={editContent}
                   onChange={(e) => setEditContent(e.target.value)}
-                  className="w-full flex-1 min-h-[380px] p-4 text-xs sm:text-sm font-mono text-slate-800 bg-slate-50/50 border border-slate-200 rounded-xl focus:bg-white focus:border-indigo-500 focus:outline-none resize-y leading-relaxed"
+                  className="w-full flex-1 min-h-[380px] p-4 text-xs sm:text-sm font-sans text-slate-800 bg-slate-50/50 border border-slate-200 rounded-xl focus:bg-white focus:border-indigo-500 focus:outline-none resize-y leading-relaxed"
                 />
               </div>
 

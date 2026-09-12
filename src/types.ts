@@ -1,6 +1,16 @@
 export type UserRole = 'user' | 'admin';
 export type SubscriptionTier = 'free' | 'pro' | 'agency';
 
+export interface UserPreferences {
+  default_language?: string;
+  default_tone?: string;
+  target_audience?: string;
+  niche?: string;
+  defaultPlatform?: string;
+  defaultLanguage?: string;
+  theme?: string;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -12,6 +22,31 @@ export interface User {
   credits_limit: number;
   created_at: string;
   disabled?: boolean;
+  creator_name?: string;
+  preferences?: UserPreferences;
+}
+
+export interface UsageLog {
+  id: string;
+  user_id: string;
+  type: string;
+  platform: string;
+  topic?: string;
+  prompt?: string;
+  language?: string;
+  credits_consumed?: number;
+  created_at: string;
+}
+
+export interface UsageResponse {
+  success?: boolean;
+  tier: SubscriptionTier;
+  credits_used: number;
+  credits_limit: number;
+  credits_remaining: number;
+  created_at: string;
+  history: UsageLog[];
+  logs?: UsageLog[];
 }
 
 export interface UserStats {
@@ -123,17 +158,42 @@ export interface ContentItem {
   updated_at: string;
 }
 
+export type TemplateCategory =
+  | 'all'
+  | 'reels'
+  | 'social'
+  | 'marketing'
+  | 'youtube'
+  | 'seo'
+  | 'copywriting'
+  | 'sales'
+  | 'business'
+  | 'personal-brand'
+  | 'education'
+  | 'healthcare'
+  | 'local-business'
+  | 'ads'
+  | 'planning'
+  | 'favorites'
+  | 'recent'
+  | (string & {});
+
 export interface ContentTemplate {
   id: string;
   title: string;
   description: string;
-  category: 'reels' | 'social' | 'marketing' | 'youtube' | 'seo';
+  category: TemplateCategory;
   icon: string;
   type: string;
   platform: string;
   tone: string;
   topic_template: string;
   prompt_preset: Record<string, any>;
+  keywords?: string[];
+  audience?: string;
+  duration?: string;
+  framework?: string;
+  safety_note?: string;
 }
 
 export interface GenerationRequest {

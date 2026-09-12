@@ -110,7 +110,7 @@ export const ReelGeneratorView: React.FC = () => {
   };
 
   return (
-    <div id="reel-generator-root" className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6 animate-in fade-in duration-200 font-['Inter',sans-serif]">
+    <div id="reel-generator-root" className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6 animate-in fade-in duration-200 font-sans">
       <div>
         <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-50 border border-indigo-100 rounded-full text-indigo-700 text-xs font-semibold uppercase tracking-wider mb-2">
           <Film className="w-3.5 h-3.5" /> High-Retention Video Suite

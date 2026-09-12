@@ -25,9 +25,19 @@ interface AuthContextType {
   openUpgradeModal: () => void;
   closeUpgradeModal: () => void;
   login: (email: string, password: string) => Promise<void>;
+  loginWithGoogle: (email: string, name?: string, avatar?: string) => Promise<void>;
   register: (name: string, email: string, password: string, confirmPassword?: string) => Promise<void>;
   logout: () => void;
   forgotPassword: (email: string) => Promise<string>;
+  updateProfile: (params: {
+    name?: string;
+    email?: string;
+    avatar?: string;
+    creator_name?: string;
+    preferences?: Record<string, any>;
+    currentPassword?: string;
+    newPassword?: string;
+  }) => Promise<void>;
   upgradeTier: (tier: SubscriptionTier) => Promise<void>;
   switchDemoRole: (role: 'creator' | 'admin' | 'free') => Promise<void>;
   refreshUserData: () => Promise<void>;
@@ -37,10 +47,10 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Synchronous initialization from persisted storage to prevent unauthenticated flash
+  // Synchronous initialization from localStorage / cookies to prevent unauthenticated flash across page refreshes
   const [user, setUser] = useState<User | null>(() => getStoredUser());
   const [stats, setStats] = useState<UserStats | null>(() => getStoredStats());
-  const [isLoading, setIsLoading] = useState<boolean>(!getStoredUser());
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [authModalTab, setAuthModalTab] = useState<'login' | 'signup' | 'forgot'>('login');
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState<boolean>(false);
@@ -48,6 +58,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const { success, error, info } = useToast();
 
   const refreshUserData = useCallback(async () => {
+    // Retrieve session token from localStorage / persistence
     const token = getStoredToken();
     if (!token) {
       setIsLoading(false);
@@ -59,6 +70,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (data && data.user) {
         setUser(data.user);
         setStats(data.stats);
+        // Persist token and user in localStorage
         setStoredAuth(token, data.user);
         if (data.stats) {
           setStoredStats(data.stats);
@@ -77,28 +89,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  // Initialize and verify session on load / refresh
+  // Initialize and retrieve stored user session token from localStorage on app load & page refreshes
   useEffect(() => {
-    const token = getStoredToken();
-    const isLoggedOut = isExplicitlyLoggedOut();
+    const initializeAuth = async () => {
+      try {
+        const token = getStoredToken();
+        const storedUser = getStoredUser();
+        const isLoggedOut = isExplicitlyLoggedOut();
 
-    if (token) {
-      // User has an existing persisted session - verify with server
-      refreshUserData();
-    } else if (!isLoggedOut) {
-      // First visit - auto-initialize standard demo account
-      api.switchDemo('creator')
-        .then(res => {
+        if (token) {
+          // Token exists in localStorage - immediately hydrate local state and verify session with backend
+          if (storedUser && !user) {
+            setUser(storedUser);
+          }
+          await refreshUserData();
+        } else if (!isLoggedOut) {
+          // First visit (no session, not explicitly logged out) - initialize default demo creator account
+          const res = await api.switchDemo('creator');
           setStoredAuth(res.token, res.user);
           setUser(res.user);
-          refreshUserData();
-        })
-        .catch(() => {
+          await refreshUserData();
+        } else {
+          // User explicitly logged out previously
           setIsLoading(false);
-        });
-    } else {
-      setIsLoading(false);
-    }
+        }
+      } catch (err) {
+        console.error('App initialization authentication error:', err);
+        setIsLoading(false);
+      }
+    };
+
+    initializeAuth();
   }, [refreshUserData]);
 
   const openAuthModal = useCallback((tab: 'login' | 'signup' | 'forgot' = 'login') => {
@@ -121,14 +142,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
-      const res = await api.login({ email, password });
+      const cleanEmail = (email || '').trim();
+      const res = await api.login({ email: cleanEmail, password });
       setStoredAuth(res.token, res.user);
       setUser(res.user);
       await refreshUserData();
       setIsAuthModalOpen(false);
       success(`Welcome back, ${res.user.name}!`);
     } catch (err: any) {
-      error(err.message || 'Login failed');
+      const msg = err?.data?.error || err?.message || 'Login failed. Please check your credentials.';
+      error(msg);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loginWithGoogle = async (email: string, name?: string, avatar?: string) => {
+    setIsLoading(true);
+    try {
+      const cleanEmail = (email || '').trim();
+      const res = await api.loginWithGoogle({ email: cleanEmail, name, avatar });
+      setStoredAuth(res.token, res.user);
+      setUser(res.user);
+      await refreshUserData();
+      setIsAuthModalOpen(false);
+      success(`Welcome back, ${res.user.name}!`);
+    } catch (err: any) {
+      const msg = err?.data?.error || err?.message || 'Google sign-in failed';
+      error(msg);
       throw err;
     } finally {
       setIsLoading(false);
@@ -138,14 +180,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const register = async (name: string, email: string, password: string, confirmPassword?: string) => {
     setIsLoading(true);
     try {
-      const res = await api.register({ name, email, password, confirmPassword });
+      const cleanName = (name || '').trim();
+      const cleanEmail = (email || '').trim();
+      const res = await api.register({ name: cleanName, email: cleanEmail, password, confirmPassword });
       setStoredAuth(res.token, res.user);
       setUser(res.user);
       await refreshUserData();
       setIsAuthModalOpen(false);
-      success(`Account created! Welcome to ContentFlow AI, ${name}!`);
+      success(`Account created! Welcome to ContentFlow AI, ${cleanName}!`);
     } catch (err: any) {
-      error(err.message || 'Registration failed');
+      const msg = err?.data?.error || err?.message || 'Registration failed';
+      error(msg);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const updateProfile = async (params: {
+    name?: string;
+    email?: string;
+    avatar?: string;
+    creator_name?: string;
+    preferences?: Record<string, any>;
+    currentPassword?: string;
+    newPassword?: string;
+  }) => {
+    setIsLoading(true);
+    try {
+      const res = await api.updateProfile(params);
+      setUser(res.user);
+      const token = getStoredToken();
+      if (token) {
+        setStoredAuth(token, res.user);
+      }
+      await refreshUserData();
+      success(res.message || 'Profile updated successfully.');
+    } catch (err: any) {
+      error(err.message || 'Failed to update profile');
       throw err;
     } finally {
       setIsLoading(false);
@@ -238,9 +310,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         openUpgradeModal,
         closeUpgradeModal,
         login,
+        loginWithGoogle,
         register,
         logout,
         forgotPassword,
+        updateProfile,
         upgradeTier,
         switchDemoRole,
         refreshUserData,

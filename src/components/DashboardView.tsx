@@ -359,7 +359,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
                   <h4 className="text-xs font-bold text-slate-900 truncate">
                     {item.title || item.topic}
                   </h4>
-                  <p className="text-xs text-slate-500 line-clamp-1 mt-0.5 font-mono">
+                  <p className="text-xs text-slate-500 line-clamp-1 mt-0.5 font-sans">
                     {item.content.replace(/[#*`_]/g, '')}
                   </p>
                 </div>

@@ -10,6 +10,7 @@ import {
   Settings, 
   Sliders, 
   CreditCard,
+  BarChart3,
   Menu,
   X,
   ExternalLink,
@@ -38,7 +39,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [isSearchActive, setIsSearchActive] = useState(false);
 
   const profileRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
@@ -58,7 +58,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   }, []);
 
   const creditsRemaining = stats?.credits_remaining ?? Math.max(0, (user?.credits_limit || 10) - (user?.credits_used || 0));
-  const creditsLimit = user?.credits_limit || 10;
+  const creditsLimit = stats?.credits_limit ?? (user?.credits_limit || 10);
   const creditsPercent = Math.min(100, Math.round((creditsRemaining / creditsLimit) * 100));
 
   const notifications = [
@@ -72,6 +72,12 @@ export const Navbar: React.FC<NavbarProps> = ({
     if (!searchQuery.trim()) return;
     onNavigate('my-content');
     info(`Filtered content library for "${searchQuery}"`);
+  };
+
+  const handleLogout = () => {
+    logout();
+    setIsProfileOpen(false);
+    onNavigate('dashboard');
   };
 
   return (
@@ -109,20 +115,23 @@ export const Navbar: React.FC<NavbarProps> = ({
           <div className="hidden xl:flex items-center gap-1 bg-slate-100/90 p-1 rounded-xl border border-slate-200 text-xs">
             <span className="text-[10px] font-semibold text-slate-500 px-2 uppercase tracking-wider">Demo:</span>
             <button
+              id="btn-demo-switch-creator-nav"
               onClick={() => switchDemoRole('creator')}
-              className={`px-2 py-0.5 rounded-lg text-xs font-medium transition-all ${user?.role === 'user' && user?.tier === 'pro' ? 'bg-white text-indigo-600 shadow-2xs' : 'text-slate-600 hover:text-slate-900'}`}
+              className={`px-2 py-0.5 rounded-lg text-xs font-medium transition-all ${user?.role === 'user' && user?.tier === 'pro' ? 'bg-white text-indigo-600 shadow-2xs font-bold' : 'text-slate-600 hover:text-slate-900'}`}
             >
               Creator Pro
             </button>
             <button
+              id="btn-demo-switch-free-nav"
               onClick={() => switchDemoRole('free')}
-              className={`px-2 py-0.5 rounded-lg text-xs font-medium transition-all ${user?.tier === 'free' ? 'bg-white text-indigo-600 shadow-2xs' : 'text-slate-600 hover:text-slate-900'}`}
+              className={`px-2 py-0.5 rounded-lg text-xs font-medium transition-all ${user?.tier === 'free' ? 'bg-white text-indigo-600 shadow-2xs font-bold' : 'text-slate-600 hover:text-slate-900'}`}
             >
               Free (10 Credits)
             </button>
             <button
+              id="btn-demo-switch-admin-nav"
               onClick={() => switchDemoRole('admin')}
-              className={`px-2 py-0.5 rounded-lg text-xs font-medium transition-all ${user?.role === 'admin' ? 'bg-white text-indigo-600 shadow-2xs' : 'text-slate-600 hover:text-slate-900'}`}
+              className={`px-2 py-0.5 rounded-lg text-xs font-medium transition-all ${user?.role === 'admin' ? 'bg-white text-indigo-600 shadow-2xs font-bold' : 'text-slate-600 hover:text-slate-900'}`}
             >
               Admin
             </button>
@@ -138,7 +147,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               <div className="flex flex-col items-end">
                 <span className="text-[11px] font-bold text-indigo-900">
-                  {creditsRemaining} / {creditsLimit} <span className="font-normal text-indigo-700">remaining</span>
+                  {creditsRemaining} / {creditsLimit} <span className="font-normal text-indigo-700">credits</span>
                 </span>
                 <div className="w-16 h-1.5 bg-indigo-200/70 rounded-full overflow-hidden mt-0.5">
                   <div 
@@ -174,7 +183,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               id="btn-navbar-notifications"
               type="button"
               onClick={() => setIsNotifOpen(!isNotifOpen)}
-              className="relative p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-colors"
+              className="relative p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
               aria-label="Notifications"
             >
               <Bell className="w-4.5 h-4.5" />
@@ -207,86 +216,110 @@ export const Navbar: React.FC<NavbarProps> = ({
             )}
           </div>
 
-          {/* User Profile Menu */}
+          {/* User Profile Menu with Avatar, Name, Plan Badge & Dropdown */}
           {isAuthenticated && user && (
             <div className="relative" ref={profileRef}>
               <button
                 id="btn-navbar-user-profile"
                 type="button"
                 onClick={() => setIsProfileOpen(!isProfileOpen)}
-                className="flex items-center gap-2 p-1 pl-1.5 pr-2 bg-slate-100 hover:bg-slate-200/80 border border-slate-200 rounded-xl transition-colors"
+                className="flex items-center gap-2 p-1 pl-1.5 pr-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-all cursor-pointer shadow-2xs"
               >
                 <img
                   src={user.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.name}`}
                   alt={user.name}
-                  className="w-6 h-6 rounded-lg object-cover bg-white ring-1 ring-slate-200"
+                  className="w-7 h-7 rounded-lg object-cover bg-white ring-1 ring-slate-200"
                 />
-                <span className="text-xs font-semibold text-slate-800 max-w-[100px] truncate hidden md:inline">
-                  {user.name}
-                </span>
-                <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                <div className="hidden md:flex flex-col items-start text-left min-w-0">
+                  <span className="text-xs font-bold text-slate-900 max-w-[110px] truncate leading-tight">
+                    {user.name}
+                  </span>
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-indigo-600 leading-tight">
+                    {user.tier || 'Free'}
+                  </span>
+                </div>
+                <ChevronDown className="w-3.5 h-3.5 text-slate-400 ml-0.5" />
               </button>
 
               {isProfileOpen && (
                 <div 
                   id="navbar-profile-dropdown"
-                  className="absolute right-0 mt-2 w-56 bg-white border border-slate-200 rounded-2xl shadow-xl py-1.5 z-40"
+                  className="absolute right-0 mt-2 w-60 bg-white border border-slate-200 rounded-2xl shadow-xl py-1.5 z-40 animate-in fade-in duration-150"
                 >
-                  <div className="px-3.5 py-2.5 border-b border-slate-100">
+                  <div className="px-3.5 py-3 border-b border-slate-100">
                     <p className="text-xs font-bold text-slate-900 truncate">{user.name}</p>
                     <p className="text-[11px] text-slate-500 truncate">{user.email}</p>
-                    <div className="flex items-center gap-1.5 mt-1.5">
-                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">
-                        {user.tier} Plan
+                    <div className="flex items-center gap-1.5 mt-2">
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">
+                        {user.tier || 'Free'} Plan
                       </span>
-                      {user.role === 'admin' && (
-                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-100 flex items-center gap-1">
-                          <ShieldCheck className="w-2.5 h-2.5" /> Admin
-                        </span>
-                      )}
+                      <span className="text-[10px] font-semibold text-slate-500">
+                        {creditsRemaining}/{creditsLimit} Credits
+                      </span>
                     </div>
                   </div>
 
                   <div className="py-1">
                     <button
+                      id="dropdown-item-profile"
                       onClick={() => { onNavigate('settings'); setIsProfileOpen(false); }}
-                      className="w-full text-left px-3.5 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                      className="w-full text-left px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 flex items-center gap-2.5 transition-colors cursor-pointer"
                     >
-                      <Settings className="w-3.5 h-3.5 text-slate-400" />
-                      Account Settings
+                      <UserIcon className="w-4 h-4 text-slate-400" />
+                      <span>Profile</span>
                     </button>
                     <button
+                      id="dropdown-item-usage"
+                      onClick={() => { onNavigate('usage'); setIsProfileOpen(false); }}
+                      className="w-full text-left px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 flex items-center gap-2.5 transition-colors cursor-pointer"
+                    >
+                      <BarChart3 className="w-4 h-4 text-slate-400" />
+                      <span>Usage & Credits</span>
+                    </button>
+                    <button
+                      id="dropdown-item-settings"
+                      onClick={() => { onNavigate('settings'); setIsProfileOpen(false); }}
+                      className="w-full text-left px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 flex items-center gap-2.5 transition-colors cursor-pointer"
+                    >
+                      <Settings className="w-4 h-4 text-slate-400" />
+                      <span>Settings</span>
+                    </button>
+                    <button
+                      id="dropdown-item-brand-voice"
                       onClick={() => { onNavigate('brand-voice'); setIsProfileOpen(false); }}
-                      className="w-full text-left px-3.5 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                      className="w-full text-left px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 flex items-center gap-2.5 transition-colors cursor-pointer"
                     >
-                      <Sliders className="w-3.5 h-3.5 text-slate-400" />
-                      Brand Voice Studio
+                      <Sliders className="w-4 h-4 text-slate-400" />
+                      <span>Brand Voice Studio</span>
                     </button>
                     <button
+                      id="dropdown-item-subscription"
                       onClick={() => { openUpgradeModal(); setIsProfileOpen(false); }}
-                      className="w-full text-left px-3.5 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                      className="w-full text-left px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 flex items-center gap-2.5 transition-colors cursor-pointer"
                     >
-                      <CreditCard className="w-3.5 h-3.5 text-slate-400" />
-                      Manage Subscription
+                      <CreditCard className="w-4 h-4 text-slate-400" />
+                      <span>Manage Subscription</span>
                     </button>
                     {user.role === 'admin' && (
                       <button
+                        id="dropdown-item-admin"
                         onClick={() => { onNavigate('admin'); setIsProfileOpen(false); }}
-                        className="w-full text-left px-3.5 py-2 text-xs text-purple-700 font-semibold hover:bg-purple-50 flex items-center gap-2"
+                        className="w-full text-left px-3.5 py-2 text-xs font-bold text-purple-700 hover:bg-purple-50 flex items-center gap-2.5 transition-colors cursor-pointer"
                       >
-                        <ShieldCheck className="w-3.5 h-3.5 text-purple-600" />
-                        Admin Dashboard
+                        <ShieldCheck className="w-4 h-4 text-purple-600" />
+                        <span>Admin Dashboard</span>
                       </button>
                     )}
                   </div>
 
                   <div className="border-t border-slate-100 pt-1">
                     <button
-                      onClick={() => { logout(); setIsProfileOpen(false); }}
-                      className="w-full text-left px-3.5 py-2 text-xs text-rose-600 hover:bg-rose-50 flex items-center gap-2"
+                      id="dropdown-item-logout"
+                      onClick={handleLogout}
+                      className="w-full text-left px-3.5 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 flex items-center gap-2.5 transition-colors cursor-pointer"
                     >
-                      <LogOut className="w-3.5 h-3.5 text-rose-500" />
-                      Sign Out
+                      <LogOut className="w-4 h-4 text-rose-500" />
+                      <span>Logout</span>
                     </button>
                   </div>
                 </div>

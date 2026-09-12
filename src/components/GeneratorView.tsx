@@ -156,7 +156,7 @@ export const GeneratorView: React.FC<GeneratorViewProps> = ({
   };
 
   return (
-    <div id="unified-generator-root" className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6 animate-in fade-in duration-200 font-['Inter',sans-serif]">
+    <div id="unified-generator-root" className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6 animate-in fade-in duration-200 font-sans">
       {/* Header */}
       <div>
         <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-50 border border-indigo-100 rounded-full text-indigo-700 text-xs font-semibold uppercase tracking-wider mb-2">

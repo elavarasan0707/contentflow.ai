@@ -10,6 +10,24 @@ dotenv.config();
 const app = express();
 const PORT = 3000;
 
+// Enable CORS and preflight handling for all requests
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  } else {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  }
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, x-user-id');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(204).end();
+  }
+  next();
+});
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
@@ -45,29 +63,38 @@ app.get('/api/health', (req, res) => {
 
 // 1. AUTHENTICATION
 app.post('/api/auth/register', (req, res) => {
-  const { name, email, password, confirmPassword } = req.body;
+  const { name, email, password, confirmPassword } = req.body || {};
 
-  if (!name || !email || !password) {
+  const cleanName = (name || '').trim();
+  const cleanEmail = (email || '').trim();
+  const cleanPassword = (password || '').trim();
+  const cleanConfirm = (confirmPassword || '').trim();
+
+  if (!cleanName || !cleanEmail || !cleanPassword) {
     return res.status(400).json({ error: 'Name, email, and password are required' });
   }
 
-  if (password !== confirmPassword && confirmPassword) {
+  if (cleanConfirm && cleanPassword !== cleanConfirm) {
     return res.status(400).json({ error: 'Passwords do not match' });
   }
 
-  const existing = db.findUserByEmail(email);
+  if (cleanPassword.length < 6) {
+    return res.status(400).json({ error: 'Password must be at least 6 characters' });
+  }
+
+  const existing = db.findUserByEmail(cleanEmail);
   if (existing) {
     return res.status(400).json({ error: 'An account with this email already exists' });
   }
 
-  const role = email.toLowerCase().includes('admin') ? 'admin' : 'user';
+  const role = cleanEmail.toLowerCase().includes('admin') ? 'admin' : 'user';
   const newUser = db.createUser({
-    name,
-    email,
-    passwordHash: password, // In production use bcrypt
+    name: cleanName,
+    email: cleanEmail,
+    passwordHash: cleanPassword, // In production use bcrypt
     role,
     tier: 'free',
-    avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(name)}`
+    avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(cleanName)}`
   });
 
   res.status(201).json({
@@ -78,23 +105,26 @@ app.post('/api/auth/register', (req, res) => {
 });
 
 app.post('/api/auth/login', (req, res) => {
-  const { email, password } = req.body;
+  const { email, password } = req.body || {};
 
-  if (!email || !password) {
+  const cleanEmail = (email || '').trim();
+  const cleanPassword = (password || '').trim();
+
+  if (!cleanEmail || !cleanPassword) {
     return res.status(400).json({ error: 'Email and password are required' });
   }
 
-  const user = db.findUserByEmail(email);
+  const user = db.findUserByEmail(cleanEmail);
   if (!user) {
-    return res.status(401).json({ error: 'Invalid email or password' });
+    return res.status(401).json({ error: 'Invalid email or password. Please verify your credentials or use a 1-click demo account.' });
   }
 
   if (user.disabled) {
     return res.status(403).json({ error: 'This account has been disabled. Please contact support.' });
   }
 
-  if (user.passwordHash !== password) {
-    return res.status(401).json({ error: 'Invalid email or password' });
+  if (user.passwordHash !== cleanPassword && user.passwordHash !== password) {
+    return res.status(401).json({ error: 'Invalid email or password. Please verify your credentials or use a 1-click demo account.' });
   }
 
   res.json({
@@ -162,6 +192,88 @@ app.post('/api/auth/upgrade-tier', (req, res) => {
   res.json({
     user: updatedUser,
     message: `Successfully updated plan to ${tier.toUpperCase()}!`
+  });
+});
+
+app.put('/api/auth/profile', (req, res) => {
+  const user = getUserFromReq(req);
+  if (!user) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const { name, email, avatar, creator_name, preferences, currentPassword, newPassword } = req.body;
+
+  if (newPassword) {
+    if (user.passwordHash !== currentPassword) {
+      return res.status(400).json({ error: 'Current password does not match' });
+    }
+  }
+
+  // Check email collision if changing email
+  if (email && email.toLowerCase() !== user.email.toLowerCase()) {
+    const existing = db.findUserByEmail(email);
+    if (existing && existing.id !== user.id) {
+      return res.status(400).json({ error: 'This email is already in use by another account' });
+    }
+  }
+
+  const updates: Partial<User> = {};
+  if (name && name.trim()) updates.name = name.trim();
+  if (email && email.trim()) updates.email = email.trim();
+  if (avatar) updates.avatar = avatar;
+  if (creator_name !== undefined) updates.creator_name = creator_name;
+  if (preferences) updates.preferences = { ...(user.preferences || {}), ...preferences };
+  if (newPassword && newPassword.length >= 6) updates.passwordHash = newPassword;
+
+  const updatedUser = db.updateUser(user.id, updates);
+
+  res.json({
+    user: updatedUser,
+    message: 'Profile updated successfully.'
+  });
+});
+
+app.post('/api/auth/google', (req, res) => {
+  const { email, name, avatar } = req.body;
+  if (!email) {
+    return res.status(400).json({ error: 'Google email is required' });
+  }
+  let user = db.findUserByEmail(email);
+  if (!user) {
+    user = db.createUser({
+      name: name || 'Google User',
+      email,
+      passwordHash: 'google-oauth-pwd',
+      role: 'user',
+      tier: 'free',
+      avatar: avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(name || email)}`
+    });
+  }
+  res.json({
+    user,
+    token: user.id,
+    message: 'Authenticated with Google successfully'
+  });
+});
+
+app.get('/api/usage', (req, res) => {
+  const user = getUserFromReq(req);
+  if (!user) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const allLogs = db.getUsageLogs();
+  const userLogs = allLogs
+    .filter(l => l.user_id === user.id)
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+  res.json({
+    tier: user.tier,
+    credits_used: user.credits_used,
+    credits_limit: user.credits_limit,
+    credits_remaining: Math.max(0, user.credits_limit - user.credits_used),
+    created_at: user.created_at,
+    history: userLogs
   });
 });
 
@@ -520,7 +632,33 @@ app.post('/api/brand-voice', (req, res) => {
 // 6. TEMPLATES
 app.get('/api/templates', (req, res) => {
   const templates = db.getTemplates();
-  res.json({ templates });
+  res.json({ templates, totalCount: templates.length });
+});
+
+app.get('/api/templates/user-data', (req, res) => {
+  const user = getUserFromReq(req);
+  const userId = user ? user.id : 'guest';
+  const favorites = db.getUserFavorites(userId);
+  const recent = db.getUserRecentTemplates(userId);
+  res.json({ favorites, recent });
+});
+
+app.post('/api/templates/favorite', (req, res) => {
+  const user = getUserFromReq(req);
+  const userId = user ? user.id : 'guest';
+  const { templateId } = req.body;
+  if (!templateId) return res.status(400).json({ error: 'templateId required' });
+  const favorites = db.toggleUserFavorite(userId, templateId);
+  res.json({ favorites, isFavorite: favorites.includes(templateId) });
+});
+
+app.post('/api/templates/track-use', (req, res) => {
+  const user = getUserFromReq(req);
+  const userId = user ? user.id : 'guest';
+  const { templateId } = req.body;
+  if (!templateId) return res.status(400).json({ error: 'templateId required' });
+  const recent = db.trackTemplateUsage(userId, templateId);
+  res.json({ recent });
 });
 
 // 7. ADMIN DASHBOARD
@@ -616,6 +754,23 @@ app.delete('/api/admin/users/:id', (req, res) => {
 
   db.deleteUser(req.params.id);
   res.json({ success: true, message: 'User deleted from system' });
+});
+
+// API 404 fallback: ensure all unmatched /api/* requests return JSON instead of HTML
+app.all('/api/*', (req, res) => {
+  res.status(404).json({ error: `API endpoint ${req.method} ${req.path} not found` });
+});
+
+// Global API error handler returning JSON
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  console.error('Unhandled server error:', err);
+  if (res.headersSent) {
+    return next(err);
+  }
+  res.status(err.status || 500).json({
+    error: err.message || 'An unexpected server error occurred',
+    status: err.status || 500
+  });
 });
 
 // ----------------------------------------------------

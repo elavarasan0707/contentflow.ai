@@ -66,13 +66,22 @@ export const YouTubeGeneratorView: React.FC = () => {
     }
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      if (!isGenerating && topic.trim()) {
+        handleGenerate();
+      }
+    }
+  };
+
   return (
-    <div id="youtube-generator-root" className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6 animate-in fade-in duration-200">
+    <div id="youtube-generator-root" className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6 animate-in fade-in duration-200 font-sans">
       <div>
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-rose-50 border border-rose-100 rounded-full text-rose-700 text-xs font-bold uppercase tracking-wider mb-2">
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-rose-50 border border-rose-100 rounded-full text-rose-700 text-xs font-semibold uppercase tracking-wider mb-2">
           <Youtube className="w-3.5 h-3.5" /> High-CTR Video Optimizer
         </div>
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
           YouTube Creator Suite
         </h1>
         <p className="text-xs sm:text-sm text-slate-500 mt-1">
@@ -84,22 +93,28 @@ export const YouTubeGeneratorView: React.FC = () => {
         {/* Left Form (4 cols) */}
         <form onSubmit={handleGenerate} className="lg:col-span-4 bg-white border border-slate-200/90 rounded-2xl p-5 shadow-2xs space-y-4">
           <div>
-            <label className="block text-xs font-bold text-slate-800 mb-1.5">
-              Video Topic / Core Focus <span className="text-rose-500">*</span>
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs font-semibold text-slate-800">
+                Video Topic / Core Focus <span className="text-rose-500">*</span>
+              </label>
+              <span className="text-[10px] text-slate-400 font-medium">
+                Enter ↵ to send • Shift+Enter for new line
+              </span>
+            </div>
             <textarea
               id="youtube-topic-input"
               rows={3}
               required
-              placeholder="e.g. Complete tutorial on building full-stack web applications with AI in 2026..."
+              placeholder="Message ContentFlow AI... (e.g. Tutorial on building full-stack web applications with AI in 2026)"
               value={topic}
+              onKeyDown={handleKeyDown}
               onChange={(e) => setTopic(e.target.value)}
-              className="w-full p-3 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 focus:outline-none resize-none leading-relaxed"
+              className="w-full p-3.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-rose-500 focus:ring-2 focus:ring-rose-100 focus:outline-none resize-none leading-relaxed transition-all placeholder:text-slate-400"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">Language</label>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">Language</label>
             <select
               id="youtube-language-select"
               value={language}
@@ -113,7 +128,7 @@ export const YouTubeGeneratorView: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">Tone of Video</label>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">Tone of Video</label>
             <select
               id="youtube-tone-select"
               value={tone}
@@ -129,7 +144,7 @@ export const YouTubeGeneratorView: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">Target Viewers</label>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">Target Viewers</label>
             <select
               id="youtube-audience-select"
               value={audience}
@@ -147,7 +162,7 @@ export const YouTubeGeneratorView: React.FC = () => {
             id="btn-generate-youtube-submit"
             type="submit"
             disabled={isGenerating}
-            className="w-full py-3 bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-lg shadow-rose-500/25 transition-all flex items-center justify-center gap-2 disabled:opacity-60"
+            className="w-full py-3 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-semibold text-xs sm:text-sm rounded-xl shadow-md shadow-rose-500/20 hover:shadow-rose-500/30 transition-all flex items-center justify-center gap-2 disabled:opacity-60 cursor-pointer"
           >
             {isGenerating ? (
               <>
@@ -166,7 +181,7 @@ export const YouTubeGeneratorView: React.FC = () => {
         {/* Right Output (8 cols) */}
         <div className="lg:col-span-8 bg-white border border-slate-200/90 rounded-2xl shadow-2xs overflow-hidden flex flex-col min-h-[560px]">
           <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex flex-wrap items-center justify-between gap-3">
-            <span className="text-xs font-bold text-slate-900">
+            <span className="text-xs font-semibold text-slate-900">
               YouTube Title, Description & Tags
             </span>
 
@@ -178,7 +193,7 @@ export const YouTubeGeneratorView: React.FC = () => {
                     navigator.clipboard.writeText(youtubeOutput);
                     copied('YouTube package copied to clipboard');
                   }}
-                  className="p-1.5 px-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors flex items-center gap-1 bg-white shadow-2xs"
+                  className="p-1.5 px-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors flex items-center gap-1 bg-white shadow-2xs cursor-pointer"
                 >
                   <Copy className="w-3.5 h-3.5 text-slate-500" />
                   <span>Copy Package</span>
@@ -187,7 +202,7 @@ export const YouTubeGeneratorView: React.FC = () => {
                 <button
                   onClick={() => handleGenerate()}
                   disabled={isGenerating}
-                  className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 border border-slate-200 rounded-lg transition-colors bg-white shadow-2xs"
+                  className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 border border-slate-200 rounded-lg transition-colors bg-white shadow-2xs cursor-pointer"
                   title="Regenerate"
                 >
                   <RotateCw className={`w-3.5 h-3.5 ${isGenerating ? 'animate-spin' : ''}`} />
@@ -200,18 +215,29 @@ export const YouTubeGeneratorView: React.FC = () => {
             {isGenerating ? (
               <div className="flex-1 flex flex-col items-center justify-center text-center p-8 space-y-3">
                 <Loader2 className="w-8 h-8 animate-spin text-rose-600" />
-                <h4 className="text-sm font-bold text-slate-800">Generating Titles & Timestamps...</h4>
+                <h4 className="text-sm font-semibold text-slate-800">Generating Titles & Timestamps...</h4>
+                <p className="text-xs text-slate-400 max-w-xs">Optimizing title clickability, outline structures, and keywords.</p>
               </div>
             ) : youtubeOutput ? (
-              <textarea
-                id="youtube-output-textarea"
-                value={youtubeOutput}
-                onChange={(e) => {
-                  setYoutubeOutput(e.target.value);
-                  setIsSaved(false);
-                }}
-                className="w-full flex-1 min-h-[380px] p-4 text-xs sm:text-sm font-mono text-slate-800 bg-slate-50/50 border border-slate-200/80 rounded-xl focus:bg-white focus:border-indigo-500 focus:outline-none resize-y leading-relaxed"
-              />
+              <div className="flex-1 flex flex-col">
+                {/* User Prompt Message Bubble */}
+                {topic && (
+                  <div className="mb-4 p-3 bg-slate-100/70 border border-slate-200/60 rounded-xl">
+                    <div className="text-[11px] font-semibold text-slate-500 mb-1">Your Video Topic:</div>
+                    <p className="text-xs text-slate-800 font-medium leading-relaxed">{topic}</p>
+                  </div>
+                )}
+
+                <textarea
+                  id="youtube-output-textarea"
+                  value={youtubeOutput}
+                  onChange={(e) => {
+                    setYoutubeOutput(e.target.value);
+                    setIsSaved(false);
+                  }}
+                  className="w-full flex-1 min-h-[380px] p-4 text-xs sm:text-sm font-sans text-slate-800 bg-slate-50/50 border border-slate-200/80 rounded-xl focus:bg-white focus:border-rose-500 focus:ring-2 focus:ring-rose-100 focus:outline-none resize-y leading-relaxed"
+                />
+              </div>
             ) : (
               <div className="flex-1 flex flex-col items-center justify-center text-center p-8 text-slate-400 space-y-3">
                 <Youtube className="w-8 h-8 text-slate-300" />

@@ -39,7 +39,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isMobileOpen,
   onCloseMobile
 }) => {
-  const { user, openUpgradeModal, logout } = useAuth();
+  const { user, stats, openUpgradeModal, logout } = useAuth();
+
+  const creditsRemaining = stats?.credits_remaining ?? Math.max(0, (user?.credits_limit || 10) - (user?.credits_used || 0));
+  const creditsLimit = stats?.credits_limit ?? (user?.credits_limit || 10);
+  const creditPercent = Math.min(100, Math.max(0, Math.round((creditsRemaining / creditsLimit) * 100)));
+  const planName = (user?.tier || 'free').toUpperCase() + ' PLAN';
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, category: 'main' },
@@ -160,25 +165,42 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         </div>
 
-        {/* Pro Banner / Footer CTA */}
-        {!isCollapsed && (
-          <div className="p-3 mx-3 mb-3 bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-100 rounded-2xl">
-            <div className="flex items-center gap-2 mb-1.5">
-              <div className="p-1 bg-indigo-600 text-white rounded-lg">
-                <Zap className="w-3.5 h-3.5" />
-              </div>
-              <span className="text-xs font-bold text-slate-900">Upgrade to Pro</span>
+        {/* Compact Credit Card Widget */}
+        {!isCollapsed ? (
+          <div id="sidebar-credit-card" className="p-3 mx-3 mb-2 bg-slate-50 border border-slate-200/90 rounded-2xl">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[10px] font-bold tracking-wider text-slate-500 uppercase">
+                {planName}
+              </span>
+              <span className="text-[11px] font-extrabold text-slate-900">
+                {creditsRemaining}/{creditsLimit} Credits
+              </span>
             </div>
-            <p className="text-[11px] text-slate-600 leading-snug mb-2.5">
-              Unlock unlimited AI generations, Brand Voice & bulk exports.
-            </p>
+            <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden mb-2.5">
+              <div 
+                className={`h-full rounded-full transition-all duration-300 ${creditsRemaining < 3 ? 'bg-amber-500' : 'bg-indigo-600'}`}
+                style={{ width: `${creditPercent}%` }}
+              />
+            </div>
             <button
-              id="btn-sidebar-upgrade"
+              id="btn-sidebar-upgrade-credits"
               type="button"
               onClick={openUpgradeModal}
-              className="w-full py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-colors shadow-2xs text-center"
+              className="w-full py-1.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-[11px] font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
             >
-              Get Pro for ₹499/mo
+              <Zap className="w-3 h-3 text-indigo-200" />
+              <span>{user?.tier === 'agency' ? 'Manage Plan' : 'Get More Credits'}</span>
+            </button>
+          </div>
+        ) : (
+          <div className="px-2 mb-2 flex justify-center">
+            <button
+              type="button"
+              onClick={openUpgradeModal}
+              title={`${planName}: ${creditsRemaining}/${creditsLimit} Credits remaining`}
+              className="p-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-xl transition-colors"
+            >
+              <Zap className="w-4 h-4" />
             </button>
           </div>
         )}

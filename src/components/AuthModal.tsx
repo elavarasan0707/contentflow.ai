@@ -30,6 +30,8 @@ export const AuthModal: React.FC = () => {
     setErrorMsg('');
     setIsSubmitting(true);
 
+    const cleanEmail = email.trim();
+
     try {
       if (activeTab === 'signup') {
         if (password !== confirmPassword) {
@@ -37,15 +39,20 @@ export const AuthModal: React.FC = () => {
           setIsSubmitting(false);
           return;
         }
-        await register(name, email, password, confirmPassword);
+        await register(name.trim(), cleanEmail, password, confirmPassword);
       } else if (activeTab === 'login') {
-        await login(email, password);
+        await login(cleanEmail, password);
       } else if (activeTab === 'forgot') {
-        await forgotPassword(email);
+        await forgotPassword(cleanEmail);
         setActiveTab('login');
       }
     } catch (err: any) {
-      setErrorMsg(err.message || 'Action failed. Please try again.');
+      const serverMsg = err?.data?.error || err?.message;
+      if (err?.status === 401 || serverMsg?.toLowerCase().includes('invalid') || serverMsg?.toLowerCase().includes('incorrect')) {
+        setErrorMsg('Invalid email or password. Please check your credentials.');
+      } else {
+        setErrorMsg(serverMsg || 'Action failed. Please try again.');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -65,7 +72,7 @@ export const AuthModal: React.FC = () => {
     <div id="auth-modal-overlay" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
       <div 
         id="auth-modal-card" 
-        className="relative w-full max-w-md bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden font-['Inter',sans-serif] animate-in fade-in zoom-in-95 duration-200"
+        className="relative w-full max-w-md bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden font-sans animate-in fade-in zoom-in-95 duration-200"
       >
         {/* Close Button */}
         <button

@@ -8,7 +8,8 @@ import {
   GenerationResponse,
   AIAction,
   AdminStats,
-  SubscriptionTier
+  SubscriptionTier,
+  UsageResponse
 } from '../types';
 
 const TOKEN_KEY = 'contentflow_token';
@@ -110,7 +111,12 @@ export function isExplicitlyLoggedOut(): boolean {
 }
 
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const token = getStoredToken();
+  const isPublicAuthEndpoint =
+    endpoint.startsWith('/api/auth/login') ||
+    endpoint.startsWith('/api/auth/register') ||
+    endpoint.startsWith('/api/auth/forgot-password');
+
+  const token = !isPublicAuthEndpoint ? getStoredToken() : null;
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(options.headers as Record<string, string> || {}),
@@ -121,15 +127,38 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     headers['x-user-id'] = token;
   }
 
-  const response = await fetch(endpoint, {
-    ...options,
-    headers,
-  });
+  let response: Response;
+  try {
+    response = await fetch(endpoint, {
+      ...options,
+      headers,
+    });
+  } catch (networkErr: any) {
+    const error = new Error('Unable to connect to the server. Please check your internet connection or try again.') as any;
+    error.status = 0;
+    error.isNetworkError = true;
+    error.originalError = networkErr;
+    throw error;
+  }
 
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    const errorMsg = data.message || data.error || `HTTP error ${response.status}`;
+    let errorMsg = data.error || data.message;
+    if (!errorMsg) {
+      if (response.status === 401) {
+        errorMsg = 'Invalid email or password. Please check your credentials.';
+      } else if (response.status === 403) {
+        errorMsg = 'Account access denied or disabled. Please contact support.';
+      } else if (response.status === 404) {
+        errorMsg = 'Authentication service endpoint was not found.';
+      } else if (response.status === 500) {
+        errorMsg = 'Server encountered an error. Please try again in a moment.';
+      } else {
+        errorMsg = `Request failed with status ${response.status}`;
+      }
+    }
+
     const error = new Error(errorMsg) as any;
     error.status = response.status;
     error.data = data;
@@ -171,6 +200,32 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ role })
     });
+  },
+
+  async loginWithGoogle(params: { email: string; name?: string; avatar?: string }) {
+    return request<{ user: User; token: string; message: string }>('/api/auth/google', {
+      method: 'POST',
+      body: JSON.stringify(params)
+    });
+  },
+
+  async updateProfile(params: {
+    name?: string;
+    email?: string;
+    avatar?: string;
+    creator_name?: string;
+    preferences?: Record<string, any>;
+    currentPassword?: string;
+    newPassword?: string;
+  }) {
+    return request<{ user: User; message: string }>('/api/auth/profile', {
+      method: 'PUT',
+      body: JSON.stringify(params)
+    });
+  },
+
+  async getUsage() {
+    return request<UsageResponse>('/api/usage');
   },
 
   async upgradeTier(tier: SubscriptionTier) {
@@ -248,7 +303,25 @@ export const api = {
 
   // Templates
   async getTemplates() {
-    return request<{ templates: ContentTemplate[] }>('/api/templates');
+    return request<{ templates: ContentTemplate[]; totalCount?: number }>('/api/templates');
+  },
+
+  async getTemplateUserData() {
+    return request<{ favorites: string[]; recent: string[] }>('/api/templates/user-data');
+  },
+
+  async toggleTemplateFavorite(templateId: string) {
+    return request<{ favorites: string[]; isFavorite: boolean }>('/api/templates/favorite', {
+      method: 'POST',
+      body: JSON.stringify({ templateId })
+    });
+  },
+
+  async trackTemplateUse(templateId: string) {
+    return request<{ recent: string[] }>('/api/templates/track-use', {
+      method: 'POST',
+      body: JSON.stringify({ templateId })
+    });
   },
 
   // Admin

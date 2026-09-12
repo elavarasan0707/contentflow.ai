@@ -260,7 +260,7 @@ export const BrandVoiceView: React.FC = () => {
             <p className="text-xs text-indigo-200 leading-relaxed mb-4">
               When Brand Voice is enabled, the Gemini prompt engine injects these exact guidelines into every Reel, Hook, and Caption you generate so your content sounds uniquely like you, not a generic robot.
             </p>
-            <div className="text-[11px] text-indigo-300/90 font-mono bg-white/10 p-3 rounded-xl">
+            <div className="text-[11px] text-indigo-300/90 font-sans bg-white/10 p-3 rounded-xl">
               ✓ Active on all 6 generators<br />
               ✓ Strict anti-slop vocabulary enforcement<br />
               ✓ Spoken pacing calibration
@@ -295,7 +295,7 @@ export const BrandVoiceView: React.FC = () => {
                   <p className="text-xs text-slate-500">Generating live sample in your calibrated voice...</p>
                 </div>
               ) : testOutput ? (
-                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono text-slate-800 whitespace-pre-wrap leading-relaxed">
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-sans text-slate-800 whitespace-pre-wrap leading-relaxed">
                   {testOutput}
                 </div>
               ) : (

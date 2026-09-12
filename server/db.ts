@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { ALL_TEMPLATES } from '../src/data/templatesData';
 
 export interface User {
   id: string;
@@ -13,6 +14,12 @@ export interface User {
   credits_limit: number;
   created_at: string;
   disabled?: boolean;
+  creator_name?: string;
+  preferences?: {
+    defaultLanguage?: string;
+    defaultPlatform?: string;
+    theme?: string;
+  };
 }
 
 export interface BrandVoice {
@@ -79,6 +86,8 @@ interface DatabaseSchema {
   content: ContentItem[];
   usage_logs: UsageLog[];
   templates: ContentTemplate[];
+  user_favorites?: Record<string, string[]>;
+  user_recent_templates?: Record<string, { template_id: string; used_at: string }[]>;
 }
 
 const DATA_DIR = path.join(process.cwd(), 'data');
@@ -249,12 +258,33 @@ class Database {
       if (fs.existsSync(DB_FILE)) {
         const raw = fs.readFileSync(DB_FILE, 'utf-8');
         const parsed = JSON.parse(raw);
+
+        // Merge ALL_TEMPLATES with existing database templates to preserve existing while adding all new templates
+        const templateMap = new Map<string, ContentTemplate>();
+        ALL_TEMPLATES.forEach(t => templateMap.set(t.id, t as any));
+        if (Array.isArray(parsed.templates)) {
+          parsed.templates.forEach((t: ContentTemplate) => {
+            if (templateMap.has(t.id)) {
+              templateMap.set(t.id, { ...templateMap.get(t.id), ...t });
+            } else {
+              templateMap.set(t.id, t);
+            }
+          });
+        }
+        DEFAULT_TEMPLATES.forEach(t => {
+          if (!templateMap.has(t.id)) templateMap.set(t.id, t);
+        });
+
+        const mergedTemplates = Array.from(templateMap.values());
+
         return {
           users: parsed.users || [],
           brand_voices: parsed.brand_voices || [],
           content: parsed.content || [],
           usage_logs: parsed.usage_logs || [],
-          templates: parsed.templates && parsed.templates.length ? parsed.templates : DEFAULT_TEMPLATES
+          templates: mergedTemplates,
+          user_favorites: parsed.user_favorites || {},
+          user_recent_templates: parsed.user_recent_templates || {}
         };
       }
     } catch (e) {
@@ -285,6 +315,18 @@ class Database {
           tier: 'agency',
           credits_used: 12,
           credits_limit: 500,
+          created_at: new Date().toISOString()
+        },
+        {
+          id: 'user-demo-free',
+          name: 'Alex Rivera',
+          email: 'free.creator@example.com',
+          passwordHash: 'password123',
+          avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+          role: 'user',
+          tier: 'free',
+          credits_used: 7,
+          credits_limit: 10,
           created_at: new Date().toISOString()
         }
       ],
@@ -396,7 +438,9 @@ CTA:
 
   // User Operations
   public findUserByEmail(email: string): User | undefined {
-    return this.data.users.find(u => u.email.toLowerCase() === email.toLowerCase());
+    if (!email) return undefined;
+    const normalized = email.trim().toLowerCase();
+    return this.data.users.find(u => (u.email || '').trim().toLowerCase() === normalized);
   }
 
   public findUserById(id: string): User | undefined {
@@ -570,6 +614,42 @@ CTA:
   // Templates
   public getTemplates(): ContentTemplate[] {
     return this.data.templates;
+  }
+
+  public getUserFavorites(userId: string): string[] {
+    if (!this.data.user_favorites) this.data.user_favorites = {};
+    return this.data.user_favorites[userId] || [];
+  }
+
+  public toggleUserFavorite(userId: string, templateId: string): string[] {
+    if (!this.data.user_favorites) this.data.user_favorites = {};
+    const existing = this.data.user_favorites[userId] || [];
+    const index = existing.indexOf(templateId);
+    if (index > -1) {
+      existing.splice(index, 1);
+    } else {
+      existing.push(templateId);
+    }
+    this.data.user_favorites[userId] = [...existing];
+    this.save();
+    return this.data.user_favorites[userId];
+  }
+
+  public getUserRecentTemplates(userId: string): string[] {
+    if (!this.data.user_recent_templates) this.data.user_recent_templates = {};
+    const list = this.data.user_recent_templates[userId] || [];
+    return list.map(item => item.template_id);
+  }
+
+  public trackTemplateUsage(userId: string, templateId: string): string[] {
+    if (!this.data.user_recent_templates) this.data.user_recent_templates = {};
+    let list = this.data.user_recent_templates[userId] || [];
+    list = list.filter(item => item.template_id !== templateId);
+    list.unshift({ template_id: templateId, used_at: new Date().toISOString() });
+    if (list.length > 30) list = list.slice(0, 30);
+    this.data.user_recent_templates[userId] = list;
+    this.save();
+    return list.map(item => item.template_id);
   }
 }
 

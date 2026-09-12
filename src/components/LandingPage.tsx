@@ -237,7 +237,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 </button>
               </div>
 
-              <div className="space-y-2.5 text-xs sm:text-sm font-mono text-slate-800 bg-white p-4 rounded-xl border border-slate-200/80 whitespace-pre-wrap leading-relaxed">
+              <div className="space-y-2.5 text-xs sm:text-sm font-sans text-slate-800 bg-white p-4 rounded-xl border border-slate-200/80 whitespace-pre-wrap leading-relaxed">
                 <div className="text-indigo-900 font-semibold">{currentPreview.hook}</div>
                 <div className="text-slate-700">{currentPreview.body}</div>
                 <div className="text-emerald-700 font-semibold">{currentPreview.cta}</div>
@@ -264,12 +264,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             TRUSTED BY 10,000+ CREATORS, DIGITAL AGENCIES & MARKETERS
           </p>
           <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-6 items-center justify-center opacity-70">
-            <span className="text-base font-extrabold text-slate-700 font-['Outfit']">ZAZU MEDIA</span>
-            <span className="text-base font-extrabold text-slate-700 font-['Outfit']">CREATORPULSE</span>
-            <span className="text-base font-extrabold text-slate-700 font-['Outfit']">SCALEGROWTH</span>
-            <span className="text-base font-extrabold text-slate-700 font-['Outfit']">NEXUS DIGITAL</span>
-            <span className="text-base font-extrabold text-slate-700 font-['Outfit']">VIRALFLOW</span>
-            <span className="text-base font-extrabold text-slate-700 font-['Outfit']">HYPERREELS</span>
+            <span className="text-base font-black tracking-wider text-slate-700">ZAZU MEDIA</span>
+            <span className="text-base font-black tracking-wider text-slate-700">CREATORPULSE</span>
+            <span className="text-base font-black tracking-wider text-slate-700">SCALEGROWTH</span>
+            <span className="text-base font-black tracking-wider text-slate-700">NEXUS DIGITAL</span>
+            <span className="text-base font-black tracking-wider text-slate-700">VIRALFLOW</span>
+            <span className="text-base font-black tracking-wider text-slate-700">HYPERREELS</span>
           </div>
         </div>
       </section>
@@ -465,7 +465,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <span className="text-xs font-bold uppercase tracking-wider text-indigo-300">Prompt Intelligence Engine</span>
             </div>
 
-            <div className="space-y-4 text-xs font-mono">
+            <div className="space-y-4 text-xs font-sans">
               <div className="p-3 bg-white/10 rounded-xl border border-white/10">
                 <span className="text-indigo-300 font-bold block mb-1">INPUT:</span>
                 "Why small businesses need digital marketing in 2026"

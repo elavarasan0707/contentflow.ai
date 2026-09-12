@@ -72,7 +72,7 @@ export const AIActionToolbar: React.FC<AIActionToolbarProps> = ({
   ];
 
   return (
-    <div id="ai-actions-toolbar" className="p-3 bg-slate-50 border-t border-slate-200/80 rounded-b-xl flex flex-wrap items-center gap-1.5">
+    <div id="ai-actions-toolbar" className="p-3 bg-slate-50 border-t border-slate-200/80 rounded-b-xl flex flex-wrap items-center gap-1.5 font-sans">
       <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mr-1 flex items-center gap-1 select-none">
         <Sparkles className="w-3 h-3 text-indigo-500" /> AI Refine:
       </span>
@@ -84,7 +84,7 @@ export const AIActionToolbar: React.FC<AIActionToolbarProps> = ({
           type="button"
           onClick={() => handleAction(btn.action)}
           disabled={disabled || !!activeAction}
-          className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium bg-white text-slate-700 border border-slate-200 rounded-lg shadow-2xs hover:bg-slate-50 transition-all ${btn.color} disabled:opacity-50 disabled:cursor-not-allowed`}
+          className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium bg-white text-slate-700 border border-slate-200 rounded-lg shadow-2xs hover:bg-slate-50 transition-all ${btn.color} disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer`}
         >
           {activeAction === btn.action ? (
             <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-600" />
@@ -102,7 +102,7 @@ export const AIActionToolbar: React.FC<AIActionToolbarProps> = ({
           type="button"
           onClick={() => setShowTranslateMenu(!showTranslateMenu)}
           disabled={disabled || !!activeAction}
-          className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-white text-slate-700 border border-slate-200 rounded-lg shadow-2xs hover:bg-slate-50 hover:border-indigo-300 transition-all disabled:opacity-50"
+          className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-white text-slate-700 border border-slate-200 rounded-lg shadow-2xs hover:bg-slate-50 hover:border-indigo-300 transition-all disabled:opacity-50 cursor-pointer"
         >
           {activeAction === 'translate' ? (
             <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-600" />
@@ -120,19 +120,19 @@ export const AIActionToolbar: React.FC<AIActionToolbarProps> = ({
           >
             <button
               onClick={() => handleAction('translate', 'english')}
-              className="w-full text-left px-3 py-1.5 hover:bg-slate-50 text-slate-700 font-medium flex items-center justify-between"
+              className="w-full text-left px-3 py-1.5 hover:bg-slate-50 text-slate-700 font-medium flex items-center justify-between cursor-pointer"
             >
               <span>🇺🇸 English</span>
             </button>
             <button
               onClick={() => handleAction('translate', 'tamil')}
-              className="w-full text-left px-3 py-1.5 hover:bg-slate-50 text-slate-700 font-medium flex items-center justify-between"
+              className="w-full text-left px-3 py-1.5 hover:bg-slate-50 text-slate-700 font-medium flex items-center justify-between cursor-pointer"
             >
               <span>🇮🇳 Tamil (தமிழ்)</span>
             </button>
             <button
               onClick={() => handleAction('translate', 'thanglish')}
-              className="w-full text-left px-3 py-1.5 hover:bg-slate-50 text-slate-700 font-medium flex items-center justify-between"
+              className="w-full text-left px-3 py-1.5 hover:bg-slate-50 text-slate-700 font-medium flex items-center justify-between cursor-pointer"
             >
               <span>🗣️ Thanglish</span>
             </button>
