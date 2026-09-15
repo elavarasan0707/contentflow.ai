@@ -25,7 +25,11 @@ interface AuthContextType {
   openUpgradeModal: () => void;
   closeUpgradeModal: () => void;
   login: (email: string, password: string) => Promise<void>;
-  loginWithGoogle: (email: string, name?: string, avatar?: string) => Promise<void>;
+  loginWithGoogle: (
+    param1?: string | { credential?: string; accessToken?: string; idToken?: string; email?: string; name?: string; avatar?: string },
+    name?: string,
+    avatar?: string
+  ) => Promise<void>;
   register: (name: string, email: string, password: string, confirmPassword?: string) => Promise<void>;
   logout: () => void;
   forgotPassword: (email: string) => Promise<string>;
@@ -39,7 +43,6 @@ interface AuthContextType {
     newPassword?: string;
   }) => Promise<void>;
   upgradeTier: (tier: SubscriptionTier) => Promise<void>;
-  switchDemoRole: (role: 'creator' | 'admin' | 'free') => Promise<void>;
   refreshUserData: () => Promise<void>;
   deductCreditLocal: (remaining: number, limit: number, used: number) => void;
 }
@@ -95,7 +98,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         const token = getStoredToken();
         const storedUser = getStoredUser();
-        const isLoggedOut = isExplicitlyLoggedOut();
 
         if (token) {
           // Token exists in localStorage - immediately hydrate local state and verify session with backend
@@ -103,14 +105,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setUser(storedUser);
           }
           await refreshUserData();
-        } else if (!isLoggedOut) {
-          // First visit (no session, not explicitly logged out) - initialize default demo creator account
-          const res = await api.switchDemo('creator');
-          setStoredAuth(res.token, res.user);
-          setUser(res.user);
-          await refreshUserData();
         } else {
-          // User explicitly logged out previously
+          // No active session
           setIsLoading(false);
         }
       } catch (err) {
@@ -158,11 +154,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const loginWithGoogle = async (email: string, name?: string, avatar?: string) => {
+  const loginWithGoogle = async (
+    param1?: string | { credential?: string; accessToken?: string; idToken?: string; email?: string; name?: string; avatar?: string },
+    name?: string,
+    avatar?: string
+  ) => {
     setIsLoading(true);
     try {
-      const cleanEmail = (email || '').trim();
-      const res = await api.loginWithGoogle({ email: cleanEmail, name, avatar });
+      let payload: { credential?: string; accessToken?: string; idToken?: string; email?: string; name?: string; avatar?: string };
+      if (typeof param1 === 'object' && param1 !== null) {
+        payload = param1;
+      } else {
+        const cleanEmail = typeof param1 === 'string' ? param1.trim() : '';
+        payload = { email: cleanEmail, name, avatar };
+      }
+
+      const res = await api.loginWithGoogle(payload);
       setStoredAuth(res.token, res.user);
       setUser(res.user);
       await refreshUserData();
@@ -259,21 +266,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const switchDemoRole = async (role: 'creator' | 'admin' | 'free') => {
-    setIsLoading(true);
-    try {
-      const res = await api.switchDemo(role);
-      setStoredAuth(res.token, res.user);
-      setUser(res.user);
-      await refreshUserData();
-      success(`Switched account to: ${res.user.name} (${res.user.role.toUpperCase()})`);
-    } catch (err: any) {
-      error(err.message || 'Failed to switch demo account');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const deductCreditLocal = (remaining: number, limit: number, used: number) => {
     if (user) {
       const updatedUser = { ...user, credits_used: used, credits_limit: limit };
@@ -316,7 +308,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         forgotPassword,
         updateProfile,
         upgradeTier,
-        switchDemoRole,
         refreshUserData,
         deductCreditLocal
       }}

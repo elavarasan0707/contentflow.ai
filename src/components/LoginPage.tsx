@@ -28,7 +28,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   onNavigate,
   onSuccess
 }) => {
-  const { login, loginWithGoogle, register, forgotPassword, switchDemoRole } = useAuth();
+  const { login, loginWithGoogle, register, forgotPassword } = useAuth();
   const { success, error: toastError, info } = useToast();
 
   const [mode, setMode] = useState<'login' | 'signup' | 'forgot'>(initialMode);
@@ -108,7 +108,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     } catch (err: any) {
       const serverMsg = err?.data?.error || err?.message;
       if (err?.status === 401 || serverMsg?.toLowerCase().includes('invalid') || serverMsg?.toLowerCase().includes('incorrect')) {
-        setErrorMsg('Invalid email or password. Please verify your credentials or use the 1-click demo accounts below.');
+        setErrorMsg('Invalid email or password. Please verify your credentials.');
       } else if (err?.status === 403) {
         setErrorMsg('This account has been disabled. Please contact support.');
       } else if (err?.status === 400) {
@@ -123,30 +123,42 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     }
   };
 
-  const handleDemoLogin = async (role: 'creator' | 'admin' | 'free') => {
-    setIsSubmitting(true);
-    setErrorMsg('');
-    try {
-      await switchDemoRole(role);
-      const roleLabel = role === 'creator' ? 'Creator Pro' : role === 'admin' ? 'Administrator' : 'Free Tier';
-      success(`Signed in as ${roleLabel}!`);
-      if (onSuccess) {
-        onSuccess();
-      } else {
-        onNavigate('dashboard');
-      }
-    } catch (err: any) {
-      toastError('Could not switch demo role');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   const handleGoogleLogin = async () => {
     setIsSubmitting(true);
     setErrorMsg('');
+
+    const clientId = (window as any).GOOGLE_CLIENT_ID || (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID || '';
+    const google = (window as any).google;
+
+    if (google?.accounts?.id && clientId) {
+      try {
+        google.accounts.id.initialize({
+          client_id: clientId,
+          callback: async (response: any) => {
+            if (response?.credential) {
+              try {
+                await loginWithGoogle({ credential: response.credential });
+                success('Signed in with Google!');
+                if (onSuccess) onSuccess();
+                else onNavigate('dashboard');
+              } catch (authErr: any) {
+                setErrorMsg(authErr?.message || 'Google sign-in verification failed.');
+              }
+            }
+          }
+        });
+        google.accounts.id.prompt();
+        return;
+      } catch (gErr) {
+        console.warn('Google prompt fallback:', gErr);
+      }
+    }
+
     try {
-      await loginWithGoogle('google.creator@contentflow.ai', 'Creator (Google)', 'https://api.dicebear.com/7.x/avataaars/svg?seed=GoogleUser');
+      await loginWithGoogle({
+        email: email.trim() || 'google.creator@contentflow.ai',
+        name: name.trim() || 'Creator (Google)'
+      });
       success('Signed in with Google!');
       if (onSuccess) {
         onSuccess();
@@ -154,7 +166,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         onNavigate('dashboard');
       }
     } catch (err: any) {
-      setErrorMsg('Google authentication failed. Please try standard sign-in.');
+      setErrorMsg(err?.data?.error || err?.message || 'Google authentication failed. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -459,62 +471,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 </button>
               </p>
             )}
-          </div>
-
-          {/* Quick 1-Click Demo Profiles */}
-          <div className="mt-6 pt-4 border-t border-slate-100 bg-slate-50 -mx-6 -mb-6 sm:-mx-8 sm:-mb-8 p-4 sm:p-5 rounded-b-2xl">
-            <div className="flex items-center justify-between mb-2.5">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                Instant 1-Click Demo Accounts
-              </span>
-              <span className="text-[10px] text-indigo-600 font-semibold bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
-                Ready to test
-              </span>
-            </div>
-
-            <div className="grid grid-cols-3 gap-2">
-              <button
-                type="button"
-                id="btn-demo-creator-pro"
-                onClick={() => handleDemoLogin('creator')}
-                disabled={isSubmitting}
-                className="p-2.5 bg-white hover:bg-indigo-50/50 border border-slate-200 hover:border-indigo-300 rounded-xl text-center transition-all group shadow-2xs cursor-pointer"
-              >
-                <div className="text-xs font-bold text-slate-800 group-hover:text-indigo-600 flex items-center justify-center gap-1">
-                  <Sparkles className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
-                  <span>Creator</span>
-                </div>
-                <span className="text-[10px] text-slate-400 block mt-0.5 font-medium">100 Credits</span>
-              </button>
-
-              <button
-                type="button"
-                id="btn-demo-free-user"
-                onClick={() => handleDemoLogin('free')}
-                disabled={isSubmitting}
-                className="p-2.5 bg-white hover:bg-slate-100 border border-slate-200 rounded-xl text-center transition-all group shadow-2xs cursor-pointer"
-              >
-                <div className="text-xs font-bold text-slate-800 flex items-center justify-center gap-1">
-                  <UserIcon className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                  <span>Free Tier</span>
-                </div>
-                <span className="text-[10px] text-slate-400 block mt-0.5 font-medium">10 Credits</span>
-              </button>
-
-              <button
-                type="button"
-                id="btn-demo-admin"
-                onClick={() => handleDemoLogin('admin')}
-                disabled={isSubmitting}
-                className="p-2.5 bg-white hover:bg-purple-50 border border-purple-200 rounded-xl text-center transition-all group shadow-2xs cursor-pointer"
-              >
-                <div className="text-xs font-bold text-purple-700 flex items-center justify-center gap-1">
-                  <ShieldCheck className="w-3.5 h-3.5 text-purple-600 shrink-0" />
-                  <span>Admin</span>
-                </div>
-                <span className="text-[10px] text-purple-400 block mt-0.5 font-medium">Full Control</span>
-              </button>
-            </div>
           </div>
         </div>
       </main>

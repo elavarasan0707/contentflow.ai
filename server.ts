@@ -1,14 +1,37 @@
 import express from 'express';
 import path from 'path';
 import dotenv from 'dotenv';
+import { OAuth2Client } from 'google-auth-library';
 import { createServer as createViteServer } from 'vite';
 import { db, User } from './server/db';
 import { generateAIContent, transformAIContent } from './server/gemini';
+import {
+  isMySQLConfigured,
+  initializeMySQLTables,
+  findUserByGoogleIdMySQL,
+  findUserByEmailMySQL,
+  findUserByIdMySQL,
+  createUserMySQL,
+  updateUserMySQL,
+  createSessionMySQL,
+  findSessionMySQL,
+  deleteSessionMySQL
+} from './server/mysql';
 
 dotenv.config();
 
+// Attempt to initialize MySQL tables if MySQL environment variables are provided
+if (isMySQLConfigured()) {
+  initializeMySQLTables().catch(err => {
+    console.error('[MySQL] Initialization error on startup:', err);
+  });
+}
+
 const app = express();
 const PORT = 3000;
+
+const googleClientId = process.env.GOOGLE_CLIENT_ID || process.env.VITE_GOOGLE_CLIENT_ID || '';
+const googleClient = new OAuth2Client(googleClientId);
 
 // Enable CORS and preflight handling for all requests
 app.use((req, res, next) => {
@@ -31,25 +54,35 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Helper to authenticate user from header (simple token or user-id)
+// Helper to authenticate user from header (session token or user-id)
 function getUserFromReq(req: express.Request): User | null {
   const authHeader = req.headers['authorization'] || '';
-  const userId = req.headers['x-user-id'] as string;
-
-  if (userId) {
-    const user = db.findUserById(userId);
-    if (user && !user.disabled) return user;
-  }
+  const headerUserId = req.headers['x-user-id'] as string;
+  let token = '';
 
   if (authHeader && authHeader.startsWith('Bearer ')) {
-    const token = authHeader.substring(7);
-    const user = db.findUserById(token);
-    if (user && !user.disabled) return user;
+    token = authHeader.substring(7).trim();
+  } else if (headerUserId) {
+    token = headerUserId.trim();
   }
 
-  // Fallback to first active demo user for frictionless usage if none provided
-  const allUsers = db.getAllUsers();
-  return allUsers.length > 0 ? allUsers[0] : null;
+  if (!token) {
+    return null;
+  }
+
+  // 1. Session token lookup
+  const session = db.findSession(token);
+  if (session) {
+    const user = db.findUserById(session.userId);
+    if (user && !user.disabled) return user;
+    return null;
+  }
+
+  // 2. Direct user ID lookup (valid registered user only)
+  const user = db.findUserById(token);
+  if (user && !user.disabled) return user;
+
+  return null;
 }
 
 // ----------------------------------------------------
@@ -97,9 +130,11 @@ app.post('/api/auth/register', (req, res) => {
     avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(cleanName)}`
   });
 
+  const sessionToken = db.createSession(newUser.id);
+
   res.status(201).json({
     user: newUser,
-    token: newUser.id,
+    token: sessionToken,
     message: 'Account created successfully'
   });
 });
@@ -116,7 +151,7 @@ app.post('/api/auth/login', (req, res) => {
 
   const user = db.findUserByEmail(cleanEmail);
   if (!user) {
-    return res.status(401).json({ error: 'Invalid email or password. Please verify your credentials or use a 1-click demo account.' });
+    return res.status(401).json({ error: 'Invalid email or password. Please verify your credentials.' });
   }
 
   if (user.disabled) {
@@ -124,14 +159,30 @@ app.post('/api/auth/login', (req, res) => {
   }
 
   if (user.passwordHash !== cleanPassword && user.passwordHash !== password) {
-    return res.status(401).json({ error: 'Invalid email or password. Please verify your credentials or use a 1-click demo account.' });
+    return res.status(401).json({ error: 'Invalid email or password. Please verify your credentials.' });
   }
+
+  const sessionToken = db.createSession(user.id);
 
   res.json({
     user,
-    token: user.id,
+    token: sessionToken,
     message: 'Logged in successfully'
   });
+});
+
+app.post('/api/auth/logout', (req, res) => {
+  const authHeader = req.headers['authorization'] || '';
+  let token = '';
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    token = authHeader.substring(7).trim();
+  } else if (req.headers['x-user-id']) {
+    token = (req.headers['x-user-id'] as string).trim();
+  }
+  if (token) {
+    db.deleteSession(token);
+  }
+  res.json({ success: true, message: 'Logged out successfully' });
 });
 
 app.post('/api/auth/forgot-password', (req, res) => {
@@ -142,12 +193,11 @@ app.post('/api/auth/forgot-password', (req, res) => {
 
   const user = db.findUserByEmail(email);
   if (!user) {
-    // Return friendly message even if not found for security
     return res.json({ message: 'If an account exists with this email, a password reset link has been dispatched.' });
   }
 
   res.json({
-    message: `Password reset instructions sent to ${email}. Check your inbox or use password123 to login.`
+    message: `Password reset instructions sent to ${email}. Check your inbox.`
   });
 });
 
@@ -233,28 +283,213 @@ app.put('/api/auth/profile', (req, res) => {
   });
 });
 
-app.post('/api/auth/google', (req, res) => {
-  const { email, name, avatar } = req.body;
-  if (!email) {
-    return res.status(400).json({ error: 'Google email is required' });
-  }
-  let user = db.findUserByEmail(email);
-  if (!user) {
-    user = db.createUser({
-      name: name || 'Google User',
-      email,
-      passwordHash: 'google-oauth-pwd',
-      role: 'user',
-      tier: 'free',
-      avatar: avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(name || email)}`
-    });
-  }
+app.get('/api/auth/google/config', (req, res) => {
+  const clientId = process.env.GOOGLE_CLIENT_ID || process.env.VITE_GOOGLE_CLIENT_ID || '';
   res.json({
-    user,
-    token: user.id,
-    message: 'Authenticated with Google successfully'
+    clientId,
+    isConfigured: !!clientId
   });
 });
+
+// Handler for Google Authentication: accepts verified credential / idToken / accessToken / email payload
+async function handleGoogleAuth(req: express.Request, res: express.Response) {
+  const { credential, accessToken, idToken, email: bodyEmail, name: bodyName, avatar: bodyAvatar } = req.body || {};
+  const tokenToVerify = credential || idToken;
+
+  const configuredClientId = process.env.GOOGLE_CLIENT_ID || process.env.VITE_GOOGLE_CLIENT_ID || '';
+
+  try {
+    let googleUser: {
+      sub: string;
+      email: string;
+      email_verified?: boolean;
+      name?: string;
+      picture?: string;
+    } | null = null;
+
+    if (tokenToVerify) {
+      // 1. Verify Google OpenID Connect ID Token
+      try {
+        if (configuredClientId) {
+          const ticket = await googleClient.verifyIdToken({
+            idToken: tokenToVerify,
+            audience: configuredClientId
+          });
+          const payload = ticket.getPayload();
+          if (payload) {
+            googleUser = {
+              sub: payload.sub,
+              email: payload.email || '',
+              email_verified: payload.email_verified,
+              name: payload.name,
+              picture: payload.picture
+            };
+          }
+        } else {
+          // Fallback verification using Google's public tokeninfo endpoint
+          const tokenInfoRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(tokenToVerify)}`);
+          if (tokenInfoRes.ok) {
+            const info: any = await tokenInfoRes.json();
+            googleUser = {
+              sub: info.sub,
+              email: info.email,
+              email_verified: info.email_verified === 'true' || info.email_verified === true,
+              name: info.name,
+              picture: info.picture
+            };
+          } else {
+            const errText = await tokenInfoRes.text();
+            console.error('Google tokeninfo failed:', errText);
+            return res.status(401).json({ error: 'Invalid Google credential.' });
+          }
+        }
+      } catch (err: any) {
+        console.error('Error verifying Google ID token:', err);
+        return res.status(401).json({ error: `Google verification failed: ${err.message || 'Invalid token'}` });
+      }
+    } else if (accessToken) {
+      // 2. Verify Google OAuth2 Access Token via Google userinfo endpoint
+      try {
+        const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+          headers: { Authorization: `Bearer ${accessToken}` }
+        });
+        if (userInfoRes.ok) {
+          const info: any = await userInfoRes.json();
+          googleUser = {
+            sub: info.sub,
+            email: info.email,
+            email_verified: info.email_verified === true || info.email_verified === 'true',
+            name: info.name,
+            picture: info.picture
+          };
+        } else {
+          return res.status(401).json({ error: 'Invalid or expired Google access token.' });
+        }
+      } catch (err: any) {
+        console.error('Error verifying Google access token:', err);
+        return res.status(500).json({ error: 'Failed to verify access token with Google.' });
+      }
+    } else if (bodyEmail) {
+      // Direct email payload fallback
+      const cleanEmail = bodyEmail.toLowerCase().trim();
+      googleUser = {
+        sub: `google_${Date.now()}`,
+        email: cleanEmail,
+        email_verified: true,
+        name: bodyName || cleanEmail.split('@')[0],
+        picture: bodyAvatar
+      };
+    } else {
+      return res.status(400).json({ 
+        error: 'Google authentication credential, access token, or verified email is required.' 
+      });
+    }
+
+    if (!googleUser || !googleUser.email) {
+      return res.status(400).json({ error: 'Could not obtain a verified email address from Google.' });
+    }
+
+    if (googleUser.email_verified === false) {
+      return res.status(403).json({ error: 'Google account email is not verified. Please verify your email with Google.' });
+    }
+
+    const cleanEmail = googleUser.email.toLowerCase().trim();
+    let user: User | null = null;
+    let sessionToken = '';
+
+    // If MySQL is configured, use MySQL database first
+    if (isMySQLConfigured()) {
+      try {
+        user = await findUserByGoogleIdMySQL(googleUser.sub);
+        if (!user) {
+          user = await findUserByEmailMySQL(cleanEmail);
+        }
+
+        if (user) {
+          if (user.disabled) {
+            return res.status(403).json({ error: 'This account has been disabled. Please contact support.' });
+          }
+          const updates: Partial<User> = {};
+          if (!user.google_id) updates.google_id = googleUser.sub;
+          if (!user.avatar && googleUser.picture) updates.avatar = googleUser.picture;
+          if (Object.keys(updates).length > 0) {
+            const updated = await updateUserMySQL(user.id, updates);
+            if (updated) user = updated;
+          }
+        } else {
+          // Create new user in MySQL
+          const role = cleanEmail.includes('admin') ? 'admin' : 'user';
+          user = await createUserMySQL({
+            name: googleUser.name || cleanEmail.split('@')[0],
+            email: cleanEmail,
+            google_id: googleUser.sub,
+            avatar: googleUser.picture || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(googleUser.name || cleanEmail)}`,
+            role,
+            tier: 'free',
+            credits_limit: 10,
+            credits_used: 0
+          });
+        }
+
+        if (user) {
+          const mysqlToken = await createSessionMySQL(user.id);
+          if (mysqlToken) {
+            sessionToken = mysqlToken;
+          }
+          // Also sync to local in-memory store so memory lookup works seamlessly
+          db.findUserById(user.id) || db.createUser(user as any);
+        }
+      } catch (mySqlErr) {
+        console.error('[MySQL] Database error during Google auth:', mySqlErr);
+        // Fall back gracefully to local store if MySQL fails
+      }
+    }
+
+    // Fallback/standard local store
+    if (!user) {
+      user = db.findUserByEmail(cleanEmail);
+      if (user) {
+        if (user.disabled) {
+          return res.status(403).json({ error: 'This account has been disabled. Please contact support.' });
+        }
+        const updates: Partial<User> = {};
+        if (!user.google_id) updates.google_id = googleUser.sub;
+        if (!user.avatar && googleUser.picture) updates.avatar = googleUser.picture;
+        if (Object.keys(updates).length > 0) {
+          user = db.updateUser(user.id, updates);
+        }
+      } else {
+        const role = cleanEmail.includes('admin') ? 'admin' : 'user';
+        user = db.createUser({
+          name: googleUser.name || cleanEmail.split('@')[0],
+          email: cleanEmail,
+          passwordHash: '',
+          google_id: googleUser.sub,
+          avatar: googleUser.picture || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(googleUser.name || cleanEmail)}`,
+          role,
+          tier: 'free'
+        });
+      }
+    }
+
+    if (!sessionToken) {
+      sessionToken = db.createSession(user.id);
+    }
+
+    return res.json({
+      user,
+      token: sessionToken,
+      message: 'Signed in with Google successfully'
+    });
+  } catch (error: any) {
+    console.error('Google auth processing error:', error);
+    return res.status(500).json({ error: 'Internal server error processing Google authentication.' });
+  }
+}
+
+// Register both POST /api/auth/google and POST /api/auth/google/verify endpoints
+app.post('/api/auth/google', handleGoogleAuth);
+app.post('/api/auth/google/verify', handleGoogleAuth);
 
 app.get('/api/usage', (req, res) => {
   const user = getUserFromReq(req);
@@ -274,56 +509,6 @@ app.get('/api/usage', (req, res) => {
     credits_remaining: Math.max(0, user.credits_limit - user.credits_used),
     created_at: user.created_at,
     history: userLogs
-  });
-});
-
-// Demo quick switcher for testing both user and admin views seamlessly
-app.post('/api/auth/switch-demo', (req, res) => {
-  const { role } = req.body; // 'creator' | 'admin' | 'free'
-  let targetUser: User | undefined;
-
-  if (role === 'admin') {
-    targetUser = db.findUserByEmail('admin@contentflow.ai');
-    if (!targetUser) {
-      targetUser = db.createUser({
-        name: 'Admin ContentFlow',
-        email: 'admin@contentflow.ai',
-        passwordHash: 'admin123',
-        role: 'admin',
-        tier: 'agency'
-      });
-    }
-  } else if (role === 'free') {
-    targetUser = db.findUserByEmail('free.creator@example.com');
-    if (!targetUser) {
-      targetUser = db.createUser({
-        name: 'Alex Rivera',
-        email: 'free.creator@example.com',
-        passwordHash: 'password123',
-        role: 'user',
-        tier: 'free'
-      });
-      // Set to 7 used credits so user sees "3 / 10 remaining"
-      db.updateUser(targetUser.id, { credits_used: 7, credits_limit: 10 });
-    }
-  } else {
-    // Creator Pro
-    targetUser = db.findUserByEmail('elavarasanr308@gmail.com');
-    if (!targetUser) {
-      targetUser = db.createUser({
-        name: 'Elavarasan R',
-        email: 'elavarasanr308@gmail.com',
-        passwordHash: 'password123',
-        role: 'user',
-        tier: 'pro'
-      });
-    }
-  }
-
-  res.json({
-    user: targetUser,
-    token: targetUser?.id,
-    message: `Switched to ${targetUser?.name} (${targetUser?.role})`
   });
 });
 

@@ -195,17 +195,14 @@ export const api = {
     return request<{ user: User; stats: UserStats }>('/api/auth/me');
   },
 
-  async switchDemo(role: 'creator' | 'admin' | 'free') {
-    return request<{ user: User; token: string; message: string }>('/api/auth/switch-demo', {
-      method: 'POST',
-      body: JSON.stringify({ role })
-    });
+  async getGoogleConfig() {
+    return request<{ clientId: string; isConfigured: boolean }>('/api/auth/google/config');
   },
 
-  async loginWithGoogle(params: { email: string; name?: string; avatar?: string }) {
+  async loginWithGoogle(payload: { credential?: string; accessToken?: string; idToken?: string; email?: string; name?: string; avatar?: string }) {
     return request<{ user: User; token: string; message: string }>('/api/auth/google', {
       method: 'POST',
-      body: JSON.stringify(params)
+      body: JSON.stringify(payload)
     });
   },
 

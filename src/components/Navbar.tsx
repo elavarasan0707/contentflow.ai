@@ -33,7 +33,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onToggleMobileSidebar,
   isMobileSidebarOpen
 }) => {
-  const { user, stats, openUpgradeModal, logout, switchDemoRole, openAuthModal, isAuthenticated } = useAuth();
+  const { user, stats, openUpgradeModal, logout, openAuthModal, isAuthenticated } = useAuth();
   const { copied, info } = useToast();
 
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -109,34 +109,8 @@ export const Navbar: React.FC<NavbarProps> = ({
           </form>
         </div>
 
-        {/* Right: Credits, Demo Switcher, Notifications, User Profile */}
+        {/* Right: Credits, Notifications, User Profile */}
         <div className="flex items-center gap-2.5">
-          {/* Demo Account Switcher for Instant Testing */}
-          <div className="hidden xl:flex items-center gap-1 bg-slate-100/90 p-1 rounded-xl border border-slate-200 text-xs">
-            <span className="text-[10px] font-semibold text-slate-500 px-2 uppercase tracking-wider">Demo:</span>
-            <button
-              id="btn-demo-switch-creator-nav"
-              onClick={() => switchDemoRole('creator')}
-              className={`px-2 py-0.5 rounded-lg text-xs font-medium transition-all ${user?.role === 'user' && user?.tier === 'pro' ? 'bg-white text-indigo-600 shadow-2xs font-bold' : 'text-slate-600 hover:text-slate-900'}`}
-            >
-              Creator Pro
-            </button>
-            <button
-              id="btn-demo-switch-free-nav"
-              onClick={() => switchDemoRole('free')}
-              className={`px-2 py-0.5 rounded-lg text-xs font-medium transition-all ${user?.tier === 'free' ? 'bg-white text-indigo-600 shadow-2xs font-bold' : 'text-slate-600 hover:text-slate-900'}`}
-            >
-              Free (10 Credits)
-            </button>
-            <button
-              id="btn-demo-switch-admin-nav"
-              onClick={() => switchDemoRole('admin')}
-              className={`px-2 py-0.5 rounded-lg text-xs font-medium transition-all ${user?.role === 'admin' ? 'bg-white text-indigo-600 shadow-2xs font-bold' : 'text-slate-600 hover:text-slate-900'}`}
-            >
-              Admin
-            </button>
-          </div>
-
           {/* Credits Remaining Badge */}
           {isAuthenticated ? (
             <div 

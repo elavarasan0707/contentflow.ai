@@ -7,6 +7,7 @@ export interface User {
   name: string;
   email: string;
   passwordHash: string;
+  google_id?: string;
   avatar?: string;
   role: 'user' | 'admin';
   tier: 'free' | 'pro' | 'agency';
@@ -20,6 +21,13 @@ export interface User {
     defaultPlatform?: string;
     theme?: string;
   };
+}
+
+export interface Session {
+  id: string;
+  userId: string;
+  createdAt: string;
+  expiresAt: string;
 }
 
 export interface BrandVoice {
@@ -82,6 +90,7 @@ export interface UsageLog {
 
 interface DatabaseSchema {
   users: User[];
+  sessions?: Session[];
   brand_voices: BrandVoice[];
   content: ContentItem[];
   usage_logs: UsageLog[];
@@ -279,6 +288,7 @@ class Database {
 
         return {
           users: parsed.users || [],
+          sessions: parsed.sessions || [],
           brand_voices: parsed.brand_voices || [],
           content: parsed.content || [],
           usage_logs: parsed.usage_logs || [],
@@ -292,131 +302,14 @@ class Database {
     }
 
     const initialData: DatabaseSchema = {
-      users: [
-        {
-          id: 'user-demo-creator',
-          name: 'Elavarasan R',
-          email: 'elavarasanr308@gmail.com',
-          passwordHash: 'password123',
-          avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-          role: 'user',
-          tier: 'pro',
-          credits_used: 3,
-          credits_limit: 100,
-          created_at: new Date().toISOString()
-        },
-        {
-          id: 'user-demo-admin',
-          name: 'Admin ContentFlow',
-          email: 'admin@contentflow.ai',
-          passwordHash: 'admin123',
-          avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
-          role: 'admin',
-          tier: 'agency',
-          credits_used: 12,
-          credits_limit: 500,
-          created_at: new Date().toISOString()
-        },
-        {
-          id: 'user-demo-free',
-          name: 'Alex Rivera',
-          email: 'free.creator@example.com',
-          passwordHash: 'password123',
-          avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
-          role: 'user',
-          tier: 'free',
-          credits_used: 7,
-          credits_limit: 10,
-          created_at: new Date().toISOString()
-        }
-      ],
-      brand_voices: [
-        {
-          id: 'bv-1',
-          user_id: 'user-demo-creator',
-          brand_name: 'ZAZU Digital Media',
-          business_description: 'Full-service modern digital marketing & content growth agency for local businesses and eCommerce brands.',
-          target_audience: 'Small business owners, startup founders, and local clinic/store directors',
-          preferred_tone: 'Conversational',
-          words_to_use: 'Growth, predictable leads, conversions, authentic branding, proven framework',
-          words_to_avoid: 'Synergy, supercharge, cheap, guarantee, spam, hack',
-          brand_personality: 'Professional + Friendly, practical, results-driven with touch of wit',
-          cta_style: 'Direct & low-friction (e.g., "Drop a comment below" or "DM \'GROWTH\'")',
-          is_active: true,
-          updated_at: new Date().toISOString()
-        }
-      ],
-      content: [
-        {
-          id: 'cnt-demo-1',
-          user_id: 'user-demo-creator',
-          title: 'Why Small Businesses Need Digital Marketing in 2026',
-          type: 'reel',
-          platform: 'instagram',
-          language: 'thanglish',
-          tone: 'Conversational',
-          topic: 'Why small businesses need digital marketing in 2026',
-          content: `HOOK (0-3s):
-"Ungaloda local business-ku innum direct walk-ins mattum dhaan varudha? Neenga daily 50+ prospective customers-ah miss pandreenga!"
-
-BODY:
-"Traditional marketing ippo slow aayiduchu.
-2026-la unga customer first search pandradhu Instagram & Google Maps-la dhaan.
-Neenga online-la illana, unga competitor dhaan unga sales-ah eduthupaanga.
-Digital marketing pannuradhukku periya budget thevai illa — just daily 1 valuable Reel & clear Google profile podhum."
-
-CTA:
-"Unga business-ah online-la scale panna 'MARKET' nu DM pannunga. Free audit tharom!"`,
-          meta: {
-            estimated_duration: '45 Seconds',
-            word_count: 78,
-            char_count: 512
-          },
-          created_at: new Date(Date.now() - 3600000 * 4).toISOString(),
-          updated_at: new Date(Date.now() - 3600000 * 4).toISOString()
-        },
-        {
-          id: 'cnt-demo-2',
-          user_id: 'user-demo-creator',
-          title: '10 High-Converting Viral Hooks for B2B Creators',
-          type: 'hook',
-          platform: 'linkedin',
-          language: 'english',
-          tone: 'Bold',
-          topic: 'High-converting lead generation frameworks for agency owners',
-          content: `1. [Shock] "We spent ₹50,000 on LinkedIn ads and got ZERO leads. Here is the 1 organic tactic that made us ₹4,20,000 instead."
-2. [Mistake] "Stop pitching your services in the first DM. It's destroying your pipeline."
-3. [Question] "Why are 90% of marketing agencies stuck at 5 clients while others scale effortlessly?"
-4. [Controversial] "Your website copy isn't converting because you are talking about yourself, not their problem."
-5. [Story] "In 2023, I was working 14-hour days for ₹30k/month clients. Here is the single pricing change that saved my sanity."`,
-          meta: {
-            estimated_duration: '35 Seconds',
-            word_count: 92,
-            char_count: 590
-          },
-          created_at: new Date(Date.now() - 3600000 * 18).toISOString(),
-          updated_at: new Date(Date.now() - 3600000 * 18).toISOString()
-        }
-      ],
-      usage_logs: [
-        {
-          id: 'log-1',
-          user_id: 'user-demo-creator',
-          type: 'reel',
-          platform: 'instagram',
-          topic: 'Why small businesses need digital marketing in 2026',
-          created_at: new Date(Date.now() - 3600000 * 4).toISOString()
-        },
-        {
-          id: 'log-2',
-          user_id: 'user-demo-creator',
-          type: 'hook',
-          platform: 'linkedin',
-          topic: 'High-converting lead generation frameworks for agency owners',
-          created_at: new Date(Date.now() - 3600000 * 18).toISOString()
-        }
-      ],
-      templates: DEFAULT_TEMPLATES
+      users: [],
+      sessions: [],
+      brand_voices: [],
+      content: [],
+      usage_logs: [],
+      templates: DEFAULT_TEMPLATES,
+      user_favorites: {},
+      user_recent_templates: {}
     };
 
     this.saveData(initialData);
@@ -650,6 +543,52 @@ CTA:
     this.data.user_recent_templates[userId] = list;
     this.save();
     return list.map(item => item.template_id);
+  }
+
+  // Session Operations
+  public createSession(userId: string, durationMs = 7 * 24 * 60 * 60 * 1000): string {
+    const token = `s_${Date.now()}_${Math.random().toString(36).substring(2)}${Math.random().toString(36).substring(2)}`;
+    const session: Session = {
+      id: token,
+      userId,
+      createdAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + durationMs).toISOString()
+    };
+    if (!this.data.sessions) {
+      this.data.sessions = [];
+    }
+    this.data.sessions.push(session);
+    this.save();
+    return token;
+  }
+
+  public findSession(token: string): Session | null {
+    if (!token || !this.data.sessions) return null;
+    const session = this.data.sessions.find(s => s.id === token);
+    if (!session) return null;
+
+    if (new Date(session.expiresAt) <= new Date()) {
+      this.deleteSession(token);
+      return null;
+    }
+    return session;
+  }
+
+  public deleteSession(token: string): boolean {
+    if (!token || !this.data.sessions) return false;
+    const initialLen = this.data.sessions.length;
+    this.data.sessions = this.data.sessions.filter(s => s.id !== token);
+    if (this.data.sessions.length !== initialLen) {
+      this.save();
+      return true;
+    }
+    return false;
+  }
+
+  public deleteUserSessions(userId: string): void {
+    if (!userId || !this.data.sessions) return;
+    this.data.sessions = this.data.sessions.filter(s => s.userId !== userId);
+    this.save();
   }
 }
 
